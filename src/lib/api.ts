@@ -1,6 +1,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { Review } from "@/lib/types";
 
 // Базовый URL для Supabase Edge Functions
 const EDGE_FUNCTION_URL = `https://hmrisiqgrxyvijsvpwrw.supabase.co/functions/v1`;
@@ -17,25 +18,31 @@ export async function fetchReviews({
   try {
     if (useLocal) {
       // Используем локальную базу данных Supabase
-      const query = supabase
+      let query = supabase
         .from('reviews')
-        .select('*')
-        .order('date', { ascending: order === 'dateAsc' });
+        .select('*');
+
+      // Применяем сортировку
+      if (order === 'dateDesc') {
+        query = query.order('date', { ascending: false });
+      } else {
+        query = query.order('date', { ascending: true });
+      }
 
       // Применяем фильтр по обработке
       if (isAnswered === 'true') {
-        query.eq('is_answered', true);
+        query = query.eq('is_answered', true);
       } else if (isAnswered === 'false') {
-        query.eq('is_answered', false);
+        query = query.eq('is_answered', false);
       }
 
       // Применяем фильтр по артикулу
       if (nmId) {
-        query.eq('article_id', nmId);
+        query = query.eq('article_id', nmId);
       }
 
       // Применяем пагинацию
-      query.range(skip, skip + take - 1);
+      query = query.range(skip, skip + take - 1);
 
       const { data, error } = await query;
 
@@ -43,7 +50,20 @@ export async function fetchReviews({
         throw error;
       }
 
-      return { data: { feedbacks: data || [] } };
+      // Преобразуем data в массив Reviews
+      const reviews = data?.map(item => ({
+        id: item.id,
+        wb_id: item.wb_id,
+        rating: item.rating,
+        text: item.text,
+        date: item.date,
+        articleId: item.article_id,
+        processed: item.processed || false,
+        response: item.response,
+        canEdit: item.can_edit || true
+      })) || [];
+
+      return { data: { feedbacks: reviews } };
     } else {
       // Используем API Wildberries через Edge Function
       let url = `${EDGE_FUNCTION_URL}/wb-reviews?action=list&take=${take}&skip=${skip}&order=${order}`;
@@ -149,6 +169,21 @@ export async function replyToReview(feedbackId: string, text: string) {
       description: "Ответ успешно отправлен",
     });
     
+    // После успешной отправки обновляем статус отзыва в базе данных
+    const { error: updateError } = await supabase
+      .from('reviews')
+      .update({ 
+        is_answered: true, 
+        processed: true,
+        response: text,
+        updated_at: new Date().toISOString() 
+      })
+      .eq('wb_id', feedbackId);
+
+    if (updateError) {
+      console.error('Ошибка при обновлении статуса отзыва:', updateError);
+    }
+    
     return result;
   } catch (error) {
     console.error('Ошибка при ответе на отзыв:', error);
@@ -164,7 +199,7 @@ export async function replyToReview(feedbackId: string, text: string) {
 // Функция для обновления статуса отзыва в локальной базе данных
 export async function updateReviewStatus(reviewId: string, processed: boolean, response?: string) {
   try {
-    const updateData: any = { 
+    const updateData: Record<string, any> = { 
       processed, 
       updated_at: new Date().toISOString() 
     };
@@ -201,7 +236,7 @@ export async function processBatchAction(action: string, reviewIds: string[], re
       // Получаем отзывы, которые нужно обработать
       const { data, error } = await supabase
         .from('reviews')
-        .select('wb_id')
+        .select('*')
         .in('id', reviewIds);
 
       if (error) {
@@ -209,9 +244,9 @@ export async function processBatchAction(action: string, reviewIds: string[], re
       }
 
       // Отправляем ответы на каждый отзыв
-      const promises = data.map(review => 
-        replyToReview(review.wb_id, response)
-      );
+      const promises = data
+        .filter(review => review.wb_id) // Убедимся, что wb_id существует
+        .map(review => replyToReview(review.wb_id, response));
 
       await Promise.all(promises);
       
