@@ -9,7 +9,75 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      api_settings: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          updated_at: string | null
+          value: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          updated_at?: string | null
+          value: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          updated_at?: string | null
+          value?: string
+        }
+        Relationships: []
+      }
+      reviews: {
+        Row: {
+          article_id: string
+          can_edit: boolean | null
+          created_at: string | null
+          date: string
+          id: string
+          is_answered: boolean | null
+          processed: boolean | null
+          rating: number
+          response: string | null
+          text: string
+          updated_at: string | null
+          wb_id: string | null
+        }
+        Insert: {
+          article_id: string
+          can_edit?: boolean | null
+          created_at?: string | null
+          date: string
+          id?: string
+          is_answered?: boolean | null
+          processed?: boolean | null
+          rating: number
+          response?: string | null
+          text: string
+          updated_at?: string | null
+          wb_id?: string | null
+        }
+        Update: {
+          article_id?: string
+          can_edit?: boolean | null
+          created_at?: string | null
+          date?: string
+          id?: string
+          is_answered?: boolean | null
+          processed?: boolean | null
+          rating?: number
+          response?: string | null
+          text?: string
+          updated_at?: string | null
+          wb_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

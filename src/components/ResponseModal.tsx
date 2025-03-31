@@ -1,222 +1,155 @@
 
 import React, { useState, useEffect } from 'react';
+import { X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { Review } from '@/lib/types';
 
 interface ResponseModalProps {
   isOpen: boolean;
   onClose: () => void;
   review: Review | null;
+  multipleReviews?: Review[] | undefined;
   onSubmit: (reviewId: string, response: string) => void;
-  multipleReviews?: Review[];
+  onSubmitMultiple?: (response: string) => void;
 }
 
 const ResponseModal: React.FC<ResponseModalProps> = ({
   isOpen,
   onClose,
   review,
+  multipleReviews,
   onSubmit,
-  multipleReviews
+  onSubmitMultiple
 }) => {
   const [response, setResponse] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [multiResponses, setMultiResponses] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (review) {
+    if (isOpen && review) {
       setResponse(review.response || '');
-    } else {
+    } else if (isOpen && !review) {
       setResponse('');
     }
-  }, [review]);
+  }, [isOpen, review]);
 
-  const handleGenerateAI = () => {
-    setIsGenerating(true);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
     
-    // Simulate AI generation - This is where the API call would happen
-    setTimeout(() => {
+    try {
       if (review) {
-        const rating = review.rating;
-        let aiResponse = '';
-        
-        if (rating >= 4) {
-          aiResponse = 'Спасибо за вашу высокую оценку! Мы рады, что наш товар соответствует вашим ожиданиям. Будем рады видеть вас снова!';
-        } else if (rating >= 3) {
-          aiResponse = 'Благодарим за ваш отзыв. Мы ценим вашу обратную связь и работаем над улучшением наших товаров. Если у вас есть конкретные предложения, пожалуйста, сообщите нам.';
-        } else {
-          aiResponse = 'Приносим извинения за то, что ваш опыт не оправдал ожиданий. Мы хотели бы узнать больше о возникших проблемах, чтобы предложить решение. Пожалуйста, свяжитесь с нашей службой поддержки.';
-        }
-        
-        setResponse(aiResponse);
+        await onSubmit(review.id, response);
+      } else if (multipleReviews && multipleReviews.length > 0 && onSubmitMultiple) {
+        await onSubmitMultiple(response);
       }
-      
-      setIsGenerating(false);
-    }, 1000);
-  };
-
-  const handleMultiGenerateAI = () => {
-    setIsGenerating(true);
-    
-    // Simulate AI generation for multiple reviews
-    setTimeout(() => {
-      if (multipleReviews) {
-        const responses: Record<string, string> = {};
-        
-        multipleReviews.forEach(review => {
-          const rating = review.rating;
-          let aiResponse = '';
-          
-          if (rating >= 4) {
-            aiResponse = 'Спасибо за вашу высокую оценку! Мы рады, что наш товар соответствует вашим ожиданиям.';
-          } else if (rating >= 3) {
-            aiResponse = 'Благодарим за ваш отзыв. Мы ценим вашу обратную связь и работаем над улучшением наших товаров.';
-          } else {
-            aiResponse = 'Приносим извинения за то, что ваш опыт не оправдал ожиданий. Мы хотели бы узнать больше о возникших проблемах.';
-          }
-          
-          responses[review.id] = aiResponse;
-        });
-        
-        setMultiResponses(responses);
-      }
-      
-      setIsGenerating(false);
-    }, 1500);
-  };
-
-  const handleSubmit = () => {
-    if (review) {
-      onSubmit(review.id, response);
-    } else if (multipleReviews) {
-      // Submit multiple responses
-      multipleReviews.forEach(review => {
-        if (multiResponses[review.id]) {
-          onSubmit(review.id, multiResponses[review.id]);
-        }
-      });
+      onClose();
+    } finally {
+      setSubmitting(false);
     }
-    onClose();
   };
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-medium text-gray-800">
-              {review ? 'Ответ на отзыв' : 'Массовая обработка отзывов'}
-            </h2>
-            <button 
-              className="text-gray-500 hover:text-gray-700"
-              onClick={onClose}
-            >
-              ✕
-            </button>
+  const getReviewInfo = () => {
+    if (review) {
+      return (
+        <div className="mb-4 bg-gray-50 p-4 rounded-md dark:bg-gray-800">
+          <div className="flex items-center justify-between mb-2">
+            <span>
+              <span className="font-medium">Артикул:</span> {review.articleId}
+            </span>
+            <span className="px-2 py-1 rounded text-sm font-medium bg-blue-50 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+              {review.rating} ★
+            </span>
           </div>
-
-          {/* Single review */}
-          {review && (
-            <>
-              <div className="mb-4 bg-gray-50 p-4 rounded-md">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                    review.rating >= 4 ? 'bg-green-50 text-green-600' : 
-                    review.rating >= 3 ? 'bg-yellow-50 text-yellow-600' : 
-                    'bg-red-50 text-red-600'
-                  }`}>
-                    {review.rating} ★
-                  </span>
-                  <span className="text-sm text-gray-500">ID: {review.id}</span>
-                  <span className="text-sm text-gray-500">Артикул: {review.articleId}</span>
-                </div>
-                <p className="text-gray-700">{review.text}</p>
+          <p className="text-gray-700 dark:text-gray-300">{review.text}</p>
+        </div>
+      );
+    }
+    
+    if (multipleReviews && multipleReviews.length > 0) {
+      return (
+        <div className="mb-4 bg-gray-50 p-4 rounded-md dark:bg-gray-800">
+          <p className="font-medium mb-2">
+            Отправка ответа на {multipleReviews.length} отзывов
+          </p>
+          <div className="max-h-40 overflow-y-auto">
+            {multipleReviews.map((r, index) => (
+              <div key={r.id} className={`py-1 ${index !== 0 ? 'border-t border-gray-200 dark:border-gray-700' : ''}`}>
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  {r.articleId} - {r.rating}★ - {r.text.substring(0, 50)}{r.text.length > 50 ? '...' : ''}
+                </span>
               </div>
-
-              <div className="mb-4">
-                <div className="flex justify-between items-center mb-2">
-                  <label className="block text-sm font-medium text-gray-700">Ваш ответ</label>
-                  <button
-                    className="text-sm text-blue-600 hover:text-blue-800"
-                    onClick={handleGenerateAI}
-                    disabled={isGenerating}
-                  >
-                    {isGenerating ? 'Генерация...' : 'Сгенерировать с помощью ИИ'}
-                  </button>
-                </div>
-                <textarea
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 h-32"
-                  value={response}
-                  onChange={(e) => setResponse(e.target.value)}
-                  placeholder="Введите ответ на отзыв..."
-                />
-              </div>
-            </>
-          )}
-
-          {/* Multiple reviews */}
-          {multipleReviews && (
-            <>
-              <div className="mb-4">
-                <div className="flex justify-between items-center mb-2">
-                  <p className="text-sm text-gray-700">Выбрано отзывов: {multipleReviews.length}</p>
-                  <button
-                    className="text-sm text-blue-600 hover:text-blue-800"
-                    onClick={handleMultiGenerateAI}
-                    disabled={isGenerating}
-                  >
-                    {isGenerating ? 'Генерация...' : 'Сгенерировать ответы с помощью ИИ'}
-                  </button>
-                </div>
-              </div>
-
-              <div className="max-h-[40vh] overflow-y-auto mb-4">
-                {multipleReviews.map(review => (
-                  <div key={review.id} className="mb-4 border rounded-md p-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                        review.rating >= 4 ? 'bg-green-50 text-green-600' : 
-                        review.rating >= 3 ? 'bg-yellow-50 text-yellow-600' : 
-                        'bg-red-50 text-red-600'
-                      }`}>
-                        {review.rating} ★
-                      </span>
-                      <span className="text-sm text-gray-500">ID: {review.id}</span>
-                    </div>
-                    <p className="text-sm text-gray-700 mb-2">{review.text}</p>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Ответ</label>
-                      <textarea
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 h-20"
-                        value={multiResponses[review.id] || ''}
-                        onChange={(e) => setMultiResponses({
-                          ...multiResponses,
-                          [review.id]: e.target.value
-                        })}
-                        placeholder="Ответ будет сгенерирован..."
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-
-          <div className="flex justify-end gap-2 mt-4">
-            <button
-              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
-              onClick={onClose}
-            >
-              Отмена
-            </button>
-            <button
-              className="px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
-              onClick={handleSubmit}
-            >
-              Отправить
-            </button>
+            ))}
           </div>
         </div>
+      );
+    }
+    
+    return null;
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-gray-900 rounded-lg w-full max-w-2xl shadow-lg transition-colors">
+        <div className="flex justify-between items-center p-4 border-b dark:border-gray-700">
+          <h2 className="text-lg font-medium dark:text-gray-100">
+            {review ? (review.processed ? 'Редактировать ответ' : 'Ответить на отзыв') : 'Ответить на выбранные отзывы'}
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-4">
+          {getReviewInfo()}
+          
+          <div className="mb-4">
+            <label htmlFor="response" className="block text-sm font-medium mb-1 dark:text-gray-300">
+              Текст ответа
+            </label>
+            <Textarea
+              id="response"
+              value={response}
+              onChange={(e) => setResponse(e.target.value)}
+              rows={5}
+              placeholder="Введите текст ответа..."
+              className="w-full p-2 border rounded-md dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
+              required
+            />
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={submitting}
+            >
+              Отмена
+            </Button>
+            <Button
+              type="submit"
+              disabled={submitting || !response.trim()}
+            >
+              {submitting ? (
+                <span className="flex items-center">
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Отправка...
+                </span>
+              ) : (
+                'Отправить'
+              )}
+            </Button>
+          </div>
+        </form>
       </div>
     </div>
   );

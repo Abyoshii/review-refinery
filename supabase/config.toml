@@ -1,1 +1,8 @@
+
 project_id = "hmrisiqgrxyvijsvpwrw"
+
+[functions.wb-reviews]
+verify_jwt = false
+
+[functions.wb-reply]
+verify_jwt = false
