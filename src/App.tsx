@@ -12,10 +12,10 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
       <TooltipProvider>
         <Toaster />
-        <Sonner />
+        <Sonner position="top-right" theme="system" closeButton />
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
