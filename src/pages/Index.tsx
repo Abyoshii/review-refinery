@@ -5,6 +5,7 @@ import ReviewTable from '@/components/ReviewTable';
 import ResponseModal from '@/components/ResponseModal';
 import { dummyReviews } from '@/lib/dummyData';
 import { Review, BatchAction } from '@/lib/types';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 const Index = () => {
   // State for reviews (will be replaced with API calls)
@@ -91,22 +92,23 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <h1 className="text-xl font-semibold text-gray-900">Review Refinery</h1>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
+      <header className="bg-white dark:bg-gray-800 shadow-sm transition-colors">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Review Refinery</h1>
+          <ThemeToggle />
         </div>
       </header>
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
           <Tabs 
             tabs={tabs} 
             activeTab={activeTab} 
             onTabChange={setActiveTab} 
           />
           
-          <h2 className="text-xl font-medium mb-6">
+          <h2 className="text-xl font-medium mb-6 dark:text-gray-100 transition-colors">
             {activeTab === 'unprocessed' ? 'Необработанные отзывы' : 'Обработанные отзывы'}
           </h2>
           
