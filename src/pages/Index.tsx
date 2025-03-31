@@ -1,12 +1,132 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+
+import React, { useState } from 'react';
+import Tabs from '@/components/Tabs';
+import ReviewTable from '@/components/ReviewTable';
+import ResponseModal from '@/components/ResponseModal';
+import { dummyReviews } from '@/lib/dummyData';
+import { Review, BatchAction } from '@/lib/types';
 
 const Index = () => {
+  // State for reviews (will be replaced with API calls)
+  const [reviews, setReviews] = useState<Review[]>(dummyReviews);
+  
+  // State for active tab
+  const [activeTab, setActiveTab] = useState('unprocessed');
+  
+  // State for modal
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedReview, setSelectedReview] = useState<Review | null>(null);
+  const [selectedMultipleReviews, setSelectedMultipleReviews] = useState<Review[] | undefined>(undefined);
+
+  // Tabs configuration
+  const tabs = [
+    { id: 'unprocessed', label: 'Необработанные отзывы' },
+    { id: 'processed', label: 'Обработанные отзывы' }
+  ];
+
+  // Handle reply to single review
+  const handleReply = (id: string) => {
+    const review = reviews.find(r => r.id === id);
+    if (review) {
+      setSelectedReview(review);
+      setSelectedMultipleReviews(undefined);
+      setModalOpen(true);
+    }
+  };
+
+  // Handle edit for already processed review
+  const handleEdit = (id: string) => {
+    const review = reviews.find(r => r.id === id);
+    if (review && review.canEdit) {
+      setSelectedReview(review);
+      setSelectedMultipleReviews(undefined);
+      setModalOpen(true);
+    }
+  };
+
+  // Handle batch actions
+  const handleBatchAction = (action: string, selectedIds: string[]) => {
+    console.log(`Batch action: ${action}`, selectedIds);
+    
+    // Mock API connection point for batch actions
+    if (action === 'generate' || action === 'template') {
+      const selectedReviews = reviews.filter(r => selectedIds.includes(r.id));
+      setSelectedMultipleReviews(selectedReviews);
+      setSelectedReview(null);
+      setModalOpen(true);
+    } else if (action === 'send') {
+      // Mock API call to send responses
+      alert(`Отправка ответов для ${selectedIds.length} отзывов`);
+      
+      // Update reviews status in UI
+      const updatedReviews = reviews.map(review => {
+        if (selectedIds.includes(review.id)) {
+          return { ...review, processed: true };
+        }
+        return review;
+      });
+      
+      setReviews(updatedReviews);
+    }
+  };
+
+  // Handle submit response
+  const handleSubmitResponse = (reviewId: string, response: string) => {
+    // This is where you would call the API to submit the response
+    console.log(`Submitting response for review ${reviewId}:`, response);
+    
+    // Update local state to reflect changes
+    const updatedReviews = reviews.map(review => {
+      if (review.id === reviewId) {
+        return {
+          ...review,
+          response,
+          processed: true
+        };
+      }
+      return review;
+    });
+    
+    setReviews(updatedReviews);
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-gray-600">Start building your amazing project here!</p>
-      </div>
+    <div className="min-h-screen bg-gray-50">
+      <header className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <h1 className="text-xl font-semibold text-gray-900">Review Refinery</h1>
+        </div>
+      </header>
+      
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-white rounded-lg shadow p-6">
+          <Tabs 
+            tabs={tabs} 
+            activeTab={activeTab} 
+            onTabChange={setActiveTab} 
+          />
+          
+          <h2 className="text-xl font-medium mb-6">
+            {activeTab === 'unprocessed' ? 'Необработанные отзывы' : 'Обработанные отзывы'}
+          </h2>
+          
+          <ReviewTable 
+            reviews={reviews}
+            processed={activeTab === 'processed'}
+            onReply={handleReply}
+            onEdit={handleEdit}
+            onBatchAction={handleBatchAction}
+          />
+        </div>
+      </main>
+      
+      <ResponseModal 
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        review={selectedReview}
+        onSubmit={handleSubmitResponse}
+        multipleReviews={selectedMultipleReviews}
+      />
     </div>
   );
 };
