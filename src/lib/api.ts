@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Review } from "@/lib/types";
 
+// Базовый URL для API Wildberries
+const WB_API_URL = "https://feedbacks-api.wildberries.ru/api/v1";
 // Базовый URL для Supabase Edge Functions
 const EDGE_FUNCTION_URL = `https://hmrisiqgrxyvijsvpwrw.supabase.co/functions/v1`;
 
@@ -65,21 +67,36 @@ export async function fetchReviews({
 
       return { data: { feedbacks: reviews } };
     } else {
-      // Используем API Wildberries через Edge Function
-      let url = `${EDGE_FUNCTION_URL}/wb-reviews?action=list&take=${take}&skip=${skip}&order=${order}`;
+      // Получаем API-ключ из окружения
+      const WB_API_KEY = await getWildberriesApiKey();
       
-      if (isAnswered) {
-        url += `&isAnswered=${isAnswered}`;
-      }
+      // Формируем параметры запроса
+      const params = new URLSearchParams();
       
-      if (nmId) {
-        url += `&nmId=${nmId}`;
-      }
-
-      const response = await fetch(url);
+      // Добавляем только непустые параметры
+      if (take) params.append('take', take.toString());
+      if (skip) params.append('skip', skip.toString());
+      if (order) params.append('order', order);
+      if (isAnswered) params.append('isAnswered', isAnswered);
+      if (nmId) params.append('nmId', nmId);
+      
+      // Формируем URL запроса
+      const url = `${WB_API_URL}/feedbacks?${params.toString()}`;
+      
+      // Выполняем запрос к API Wildberries
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${WB_API_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Ошибка получения отзывов');
+        const errorMessage = errorData.errorText || 'Ошибка получения отзывов';
+        const additionalErrors = errorData.additionalErrors ? JSON.stringify(errorData.additionalErrors) : '';
+        throw new Error(`Ошибка API Wildberries: ${response.status} ${errorMessage} ${additionalErrors}`);
       }
 
       return await response.json();
@@ -93,6 +110,20 @@ export async function fetchReviews({
     });
     return { data: { feedbacks: [] } };
   }
+}
+
+// Функция для получения API-ключа Wildberries
+async function getWildberriesApiKey() {
+  // Получаем ключ из Supabase secrets
+  const { data: secretData, error: secretError } = await supabase.functions.invoke('wb-reviews', {
+    body: { action: 'getApiKey' }
+  });
+  
+  if (secretError || !secretData || !secretData.apiKey) {
+    throw new Error('Не удалось получить API-ключ Wildberries');
+  }
+  
+  return secretData.apiKey;
 }
 
 // Функция для синхронизации отзывов с Wildberries
