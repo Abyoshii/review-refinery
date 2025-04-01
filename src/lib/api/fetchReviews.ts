@@ -82,7 +82,7 @@ export async function fetchReviews({
       if (order) params.append('order', order);
       if (nmId) params.append('nmId', nmId);
       
-      // Добавляем параметры дат
+      // Добавляем параметры дат (обязательные)
       params.append('dateFrom', dateFrom.toString());
       params.append('dateTo', dateTo.toString());
       

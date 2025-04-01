@@ -11,6 +11,14 @@ export async function syncReviews(take = 100) {
     params.append('take', take.toString());
     params.append('skip', '0');
     params.append('order', 'dateDesc');
+    // Добавляем обязательный параметр isAnswered
+    params.append('isAnswered', 'false');
+    
+    // Добавляем обязательные параметры для дат 
+    const dateFrom = Math.floor((Date.now() - 30 * 24 * 60 * 60 * 1000) / 1000); // 30 дней назад
+    const dateTo = Math.floor(Date.now() / 1000); // текущее время
+    params.append('dateFrom', dateFrom.toString());
+    params.append('dateTo', dateTo.toString());
     
     // Прямой запрос к API Wildberries
     const response = await fetch(`${WB_API_URL}/feedbacks?${params.toString()}`, {
