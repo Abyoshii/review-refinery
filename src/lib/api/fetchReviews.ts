@@ -6,11 +6,13 @@ import { WB_API_URL, WB_API_KEY } from "@/lib/constants";
 
 // Функция для получения отзывов
 export async function fetchReviews({ 
-  isAnswered = "", 
+  isAnswered = "false", 
   skip = 0, 
   take = 10, 
   order = "dateDesc",
   nmId = "",
+  dateFrom = Math.floor((Date.now() - 30 * 24 * 60 * 60 * 1000) / 1000), // 30 дней назад по умолчанию
+  dateTo = Math.floor(Date.now() / 1000), // текущее время по умолчанию
   useLocal = true 
 } = {}) {
   try {
@@ -39,6 +41,11 @@ export async function fetchReviews({
         query = query.eq('article_id', nmId);
       }
 
+      // Применяем фильтр по датам если задан
+      const fromDate = new Date(dateFrom * 1000).toISOString();
+      const toDate = new Date(dateTo * 1000).toISOString();
+      query = query.gte('date', fromDate).lte('date', toDate);
+
       // Применяем пагинацию
       query = query.range(skip, skip + take - 1);
 
@@ -63,15 +70,21 @@ export async function fetchReviews({
 
       return { data: { feedbacks: reviews } };
     } else {
-      // Формируем параметры запроса - только если они имеют значение
+      // Формируем параметры запроса - все обязательные параметры
       const params = new URLSearchParams();
       
-      // Добавляем только определенные параметры
-      if (take) params.append('take', take.toString());
-      if (skip) params.append('skip', skip.toString());
+      // Добавляем обязательные параметры
+      params.append('isAnswered', isAnswered);
+      params.append('take', take.toString());
+      params.append('skip', skip.toString());
+      
+      // Добавляем остальные параметры
       if (order) params.append('order', order);
-      if (isAnswered) params.append('isAnswered', isAnswered);
       if (nmId) params.append('nmId', nmId);
+      
+      // Добавляем параметры дат
+      params.append('dateFrom', dateFrom.toString());
+      params.append('dateTo', dateTo.toString());
       
       // Прямой запрос к API Wildberries
       const response = await fetch(`${WB_API_URL}/feedbacks?${params.toString()}`, {

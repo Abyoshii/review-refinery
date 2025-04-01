@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Tabs from '@/components/Tabs';
 import ReviewTable from '@/components/ReviewTable';
@@ -6,7 +5,10 @@ import ResponseModal from '@/components/ResponseModal';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { RefreshCw, Search } from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { format } from 'date-fns';
+import { RefreshCw, Search, Calendar as CalendarIcon } from 'lucide-react';
 import { Review } from '@/lib/types';
 import { fetchReviews, syncReviews, replyToReview, processBatchAction, getUnansweredCount } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
@@ -23,6 +25,8 @@ const Index = () => {
   
   // State для фильтрации
   const [articleFilter, setArticleFilter] = useState('');
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)); // 30 дней назад
+  const [dateTo, setDateTo] = useState<Date | undefined>(new Date());
   
   // State для модального окна
   const [modalOpen, setModalOpen] = useState(false);
@@ -47,7 +51,7 @@ const Index = () => {
     // Обновляем количество необработанных отзывов каждые 5 минут
     const interval = setInterval(loadUnansweredCount, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [activeTab, articleFilter]);
+  }, [activeTab, articleFilter, dateFrom, dateTo]);
 
   // Загрузка отзывов
   const loadReviews = async () => {
@@ -57,7 +61,9 @@ const Index = () => {
         isAnswered: activeTab === 'processed' ? 'true' : 'false',
         nmId: articleFilter,
         take: 50,
-        useLocal: true
+        useLocal: true,
+        dateFrom: dateFrom ? Math.floor(dateFrom.getTime() / 1000) : undefined,
+        dateTo: dateTo ? Math.floor(dateTo.getTime() / 1000) : undefined
       });
       
       if (result.data && result.data.feedbacks) {
@@ -194,6 +200,12 @@ const Index = () => {
     }
   };
 
+  // Форматирование даты для отображения
+  const formatDate = (date: Date | undefined) => {
+    if (!date) return '';
+    return format(date, 'dd.MM.yyyy');
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
       <header className="bg-white dark:bg-gray-800 shadow-sm transition-colors">
@@ -238,7 +250,7 @@ const Index = () => {
               onTabChange={setActiveTab} 
             />
             
-            <div className="flex gap-2 w-full md:w-auto">
+            <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
               <div className="relative flex-grow md:w-64">
                 <Input
                   type="text"
@@ -249,13 +261,50 @@ const Index = () => {
                 />
                 <Search className="absolute left-2 top-2.5 h-5 w-5 text-gray-400" />
               </div>
-              <Button 
-                onClick={loadReviews} 
-                size="sm" 
-                variant="secondary"
-              >
-                Найти
-              </Button>
+              
+              <div className="flex gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="flex items-center whitespace-nowrap">
+                      <CalendarIcon className="h-4 w-4 mr-2" />
+                      {dateFrom ? formatDate(dateFrom) : "От"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={dateFrom}
+                      onSelect={setDateFrom}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="flex items-center whitespace-nowrap">
+                      <CalendarIcon className="h-4 w-4 mr-2" />
+                      {dateTo ? formatDate(dateTo) : "До"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={dateTo}
+                      onSelect={setDateTo}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                
+                <Button 
+                  onClick={loadReviews} 
+                  size="sm" 
+                  variant="secondary"
+                >
+                  Найти
+                </Button>
+              </div>
             </div>
           </div>
           
