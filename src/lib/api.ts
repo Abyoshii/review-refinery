@@ -6,8 +6,8 @@ import { Review } from "@/lib/types";
 // Базовый URL для API Wildberries
 const WB_API_URL = "https://feedbacks-api.wildberries.ru/api/v1";
 
-// API ключ Wildberries - в реальном приложении следует хранить в защищенном месте
-const WB_API_KEY = "YOUR_WB_API_KEY_HERE"; // Замените на ваш API ключ
+// API ключ Wildberries - полученный от пользователя
+const WB_API_KEY = "eyJhbGciOiJFUzI1NiIsImtpZCI6IjIwMjUwMjE3djEiLCJ0eXAiOiJKV1QifQ.eyJlbnQiOjEsImV4cCI6MTc1OTIyNTE5NSwiaWQiOiIwMTk1ZWUyNS05NDA3LTczZTAtYTA0Mi0wZTExNTc4NTIwNDQiLCJpaWQiOjUwMTA5MjcwLCJvaWQiOjY3NzYzMiwicyI6NjQyLCJzaWQiOiJlNmFjNjYwNC0xZDIxLTQxNWMtOTA1ZC0zZGMwYzRhOGYyYmUiLCJ0IjpmYWxzZSwidWlkIjo1MDEwOTI3MH0.uLCv4lMfwG2cr6JG-kR7y_xAFYOKN5uW0YQiCyR4Czyh33LICsgKrvaYfxmrCPHtWMBbSQWqQjBq-SVSJWwefg";
 
 // Функция для получения отзывов
 export async function fetchReviews({ 
@@ -206,18 +206,19 @@ export async function getUnansweredCount() {
 // Функция для ответа на отзыв
 export async function replyToReview(feedbackId: string, text: string) {
   try {
-    // Отправляем ответ через Edge Function
-    const response = await fetch(`${EDGE_FUNCTION_URL}/wb-reply`, {
+    // Прямой запрос к API Wildberries
+    const response = await fetch(`${WB_API_URL}/feedbacks/${feedbackId}/reply`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${WB_API_KEY}`,
+        'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ feedbackId, text }),
+      body: JSON.stringify({ text }),
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.error || 'Ошибка при отправке ответа');
+      throw new Error(errorData.errorText || 'Ошибка при отправке ответа');
     }
 
     const result = await response.json();
