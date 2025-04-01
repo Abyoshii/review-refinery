@@ -5,8 +5,9 @@ import { Review } from "@/lib/types";
 
 // Базовый URL для API Wildberries
 const WB_API_URL = "https://feedbacks-api.wildberries.ru/api/v1";
-// Базовый URL для Supabase Edge Functions
-const EDGE_FUNCTION_URL = `https://hmrisiqgrxyvijsvpwrw.supabase.co/functions/v1`;
+
+// API ключ Wildberries - в реальном приложении следует хранить в защищенном месте
+const WB_API_KEY = "YOUR_WB_API_KEY_HERE"; // Замените на ваш API ключ
 
 // Функция для получения отзывов
 export async function fetchReviews({ 
@@ -67,24 +68,18 @@ export async function fetchReviews({
 
       return { data: { feedbacks: reviews } };
     } else {
-      // Получаем API-ключ из окружения
-      const WB_API_KEY = await getWildberriesApiKey();
-      
-      // Формируем параметры запроса
+      // Формируем параметры запроса - только если они имеют значение
       const params = new URLSearchParams();
       
-      // Добавляем только непустые параметры
+      // Добавляем только определенные параметры
       if (take) params.append('take', take.toString());
       if (skip) params.append('skip', skip.toString());
       if (order) params.append('order', order);
       if (isAnswered) params.append('isAnswered', isAnswered);
       if (nmId) params.append('nmId', nmId);
       
-      // Формируем URL запроса
-      const url = `${WB_API_URL}/feedbacks?${params.toString()}`;
-      
-      // Выполняем запрос к API Wildberries
-      const response = await fetch(url, {
+      // Прямой запрос к API Wildberries
+      const response = await fetch(`${WB_API_URL}/feedbacks?${params.toString()}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${WB_API_KEY}`,
@@ -112,39 +107,71 @@ export async function fetchReviews({
   }
 }
 
-// Функция для получения API-ключа Wildberries
-async function getWildberriesApiKey() {
-  // Получаем ключ из Supabase secrets
-  const { data: secretData, error: secretError } = await supabase.functions.invoke('wb-reviews', {
-    body: { action: 'getApiKey' }
-  });
-  
-  if (secretError || !secretData || !secretData.apiKey) {
-    throw new Error('Не удалось получить API-ключ Wildberries');
-  }
-  
-  return secretData.apiKey;
-}
-
 // Функция для синхронизации отзывов с Wildberries
 export async function syncReviews(take = 100) {
   try {
-    const url = `${EDGE_FUNCTION_URL}/wb-reviews?action=sync&take=${take}`;
+    // Формируем параметры запроса
+    const params = new URLSearchParams();
+    params.append('take', take.toString());
+    params.append('skip', '0');
+    params.append('order', 'dateDesc');
     
-    const response = await fetch(url);
+    // Прямой запрос к API Wildberries
+    const response = await fetch(`${WB_API_URL}/feedbacks?${params.toString()}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${WB_API_KEY}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.error || 'Ошибка синхронизации отзывов');
+      const errorMessage = errorData.errorText || 'Ошибка получения отзывов';
+      const additionalErrors = errorData.additionalErrors ? JSON.stringify(errorData.additionalErrors) : '';
+      throw new Error(`Ошибка API Wildberries: ${response.status} ${errorMessage} ${additionalErrors}`);
     }
-
-    const result = await response.json();
+    
+    const responseData = await response.json();
+    
+    if (!responseData.data || !responseData.data.feedbacks || !Array.isArray(responseData.data.feedbacks)) {
+      throw new Error('Неверный формат данных отзывов');
+    }
+    
+    // Сохраняем отзывы в базу данных
+    let savedCount = 0;
+    for (const feedback of responseData.data.feedbacks) {
+      const { error } = await supabase
+        .from('reviews')
+        .upsert({
+          wb_id: feedback.id,
+          text: feedback.text,
+          rating: feedback.productValuation,
+          date: feedback.createDate,
+          article_id: feedback.nmId.toString(),
+          is_answered: feedback.hasSupplierFeedbackAnswer,
+          processed: feedback.hasSupplierFeedbackAnswer,
+          can_edit: true,
+          response: feedback.supplierFeedbackAnswer || null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'wb_id' });
+      
+      if (!error) {
+        savedCount++;
+      }
+    }
     
     toast({
       title: "Успех",
-      description: result.message || `Синхронизировано ${result.total} отзывов`,
+      description: `Синхронизировано ${savedCount} из ${responseData.data.feedbacks.length} отзывов`,
     });
     
-    return result;
+    return { 
+      success: true, 
+      total: savedCount,
+      message: `Синхронизировано ${savedCount} из ${responseData.data.feedbacks.length} отзывов` 
+    };
   } catch (error) {
     console.error('Ошибка при синхронизации отзывов:', error);
     toast({
